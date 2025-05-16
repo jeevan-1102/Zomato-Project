@@ -1,0 +1,10 @@
+---
+version: "3"
+services:
+  zomato:
+    container_name: zomatocont
+    image: jee892/project:appimage
+    ports:
+      - "3000:3000"
+    deploy:
+      replicas: 3 
