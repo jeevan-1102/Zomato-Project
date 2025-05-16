@@ -1,0 +1,78 @@
+pipeline {
+    agent {
+        node {
+            label 'Development'
+        }
+    }
+
+    tools {
+        nodejs 'mynpm'
+    }
+
+    environment {
+        SONAR_SCANNER_HOME = tool 'mysonar'
+    }
+
+    stages {
+        stage('Clean WS') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Code') {
+            steps {
+                git 'https://github.com/jeevan-1102/Zomato-Project.git'
+            }
+        }
+
+        stage('CQA') {
+            steps {
+                withSonarQubeEnv('mysonar') {
+                    sh 'npm install'
+                    sh 'npx sonar-scanner -Dsonar.projectKey=Zomato'
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar'
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                sh 'docker build -t jee892/project:appimage .'
+            }
+        }
+
+        stage('Trivy') {
+            steps {
+                sh 'trivy image jee892/project:appimage'
+            }
+        }
+
+        stage('Docker Hub Push') {
+            steps {
+                withDockerRegistry(credentialsId: 'dockerhub') {
+                    sh 'docker push jee892/project:appimage'
+                }
+            }
+        }
+
+        stage('Stack') {
+            steps {
+                sh 'docker stack deploy mystack --compose-file=compose.yaml'
+            }
+        }
+    }
+
+    post {
+        success {
+            slackSend channel: 'all-devopsworkspace', message: 'My Node JS application deployment is Successfully Completed'
+        }
+    }
+}
